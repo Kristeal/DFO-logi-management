@@ -17,6 +17,7 @@ let globalValidItems = {};
 let pendingActions = []; // Tracks changes before they are synced
 let currentModalId = null;
 let hasPromptedSync = false;
+let globalTemplates = {};
 
 // ==========================================
 // 3. AUTHENTICATION FLOW
@@ -36,6 +37,7 @@ function handleSessionState(session) {
     const loginBtn = document.getElementById('loginBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const tableBody = document.getElementById('tableBody');
+    
 
     if (session) {
         globalUser = session.user;
@@ -48,6 +50,7 @@ function handleSessionState(session) {
         
         // Enable search filters
         document.querySelectorAll('.filters input, .filters select').forEach(el => el.disabled = false);
+        document.getElementById('openUploadBtn').style.display = 'block'; // Show upload button
         
         tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px;">⏳ Fetching database...</td></tr>';
         fetchDatabase(); 
@@ -60,6 +63,8 @@ function handleSessionState(session) {
         document.querySelectorAll('.filters input, .filters select').forEach(el => el.disabled = true);
         tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 30px;">🔒 Please log in using Discord to view the database.</td></tr>';
         document.getElementById('goalsSection').style.display = 'none';
+        if(document.getElementById('openUploadBtn')) document.getElementById('openUploadBtn').style.display = 'none';
+        
     }
 }
 
@@ -84,17 +89,38 @@ async function signOut() {
 // 4. DATABASE FETCHING & RENDERING
 // ==========================================
 async function fetchDatabase() {
-    // 1. Fetch all rows from the 'stockpiles' table
-    const { data, error } = await supabaseClient
+    // 1. Fetch stockpiles
+    const { data: spData, error: spError } = await supabaseClient
         .from('stockpiles')
         .select('*')
-        .order('pinned', { ascending: false }); // Pinned items at the top
+        .order('pinned', { ascending: false });
 
-    if (error) {
-        showToast("Failed to load database: " + error.message, "error");
-        document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center;">Failed to connect to database.</td></tr>';
+    // 2. Fetch templates
+    const { data: tData } = await supabaseClient.from('templates').select('*');
+    if (tData) {
+        tData.forEach(t => { globalTemplates[t.type] = t.items; });
+    }
+
+    if (spError) {
+        showToast("Failed to load database: " + spError.message, "error");
         return;
     }
+
+    globalStockpiles = spData;
+    globalInventories = {};
+    globalValidItems = {};
+
+    spData.forEach(row => {
+        globalInventories[row.id] = row.inventory || [];
+        if (!globalValidItems[row.type]) globalValidItems[row.type] = new Set();
+        (row.inventory || []).forEach(item => {
+            globalValidItems[row.type].add(item.name);
+        });
+    });
+
+    renderAll();
+    populateTypeDropdown();
+}
 
     globalStockpiles = data;
     globalInventories = {};
@@ -368,12 +394,14 @@ function populateTable(data) {
         let dateStr = isNaN(dateObj) ? "Unknown" : dateObj.toLocaleString();
 
         let rowClass = sp.pinned ? "data-row pinned-row" : "data-row";
+        let uploader = sp.uploaded_by ? sp.uploaded_by : "Unknown";
 
         let row = `<tr class="${rowClass}" onclick="openInventory('${sp.id}', '${sp.name}', '${sp.type}')">
             <td>${sp.hex}</td>
             <td>${sp.poi}</td>
             <td>${sp.type}</td>
             <td>${nameHtml}</td>
+            <td><span style="background:#e2e8f0; padding:3px 6px; border-radius:4px; font-size:12px;">👤 ${uploader}</span></td>
             <td>${dateStr}</td>
             <td onclick="event.stopPropagation();">
                 <div class="dropdown">
