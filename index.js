@@ -2,7 +2,7 @@
 // 1. SUPABASE INITIALIZATION
 // ==========================================
 const SUPABASE_URL = 'https://ycvoizbvjmibqklyfhfx.supabase.co/';
-const SUPABASE_ANON_KEY = 'sb_publishable_bo9G6McX-Z2Iw92XiqO-GQ_6u50sOXD';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inljdm9pemJ2am1pYnFrbHlmaGZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDQ2OTMsImV4cCI6MjA5NDg4MDY5M30.2sT0BrwOjR5LUzlF4uEkhjdrcTUOG6t4zrWNfMABIls';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
