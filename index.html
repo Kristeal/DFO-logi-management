@@ -36,10 +36,14 @@
 
     <div class="card">
         <h2>Stockpile Database</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <button class="btn btn-discord" id="openUploadBtn" style="display:none;" onclick="document.getElementById('uploadModal').style.display='flex'">📤 Upload CSV</button>
+        </div>
         <div class="filters">
             <input type="text" id="searchHex" placeholder="Filter by Hex..." disabled>
             <input type="text" id="searchPOI" placeholder="Filter by POI..." disabled>
             <input type="text" id="searchName" placeholder="Filter by Name..." disabled>
+            
             <select id="searchType" disabled>
                 <option value="">All Types</option>
             </select>
@@ -47,11 +51,12 @@
         
         <table>
             <thead>
-                <tr>
+              <tr>
                     <th>Hex</th>
                     <th>POI</th>
                     <th>Type</th>
                     <th>Name</th>
+                    <th>Uploader</th>
                     <th>Last Modified</th>
                     <th style="width: 50px;"></th>
                 </tr>
@@ -76,7 +81,17 @@
             </div>
         </div>
     </div>
-
+    
+<div id="uploadModal" class="modal" style="z-index: 200;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" onclick="document.getElementById('uploadModal').style.display='none'">&times;</span>
+            <h3 style="margin-top:0;">📤 Upload Stockpile CSV</h3>
+            <p style="font-size: 14px; color: #64748b;">Paste your raw game data here to update or create a stockpile.</p>
+            <textarea id="csvInput" rows="10" style="width:100%; box-sizing:border-box; padding:10px; font-family:monospace; margin-bottom:15px; border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;" placeholder="Paste data here..."></textarea>
+            <button class="btn btn-submit" onclick="processUpload()">Process & Upload</button>
+        </div>
+    </div>
+    
     <div id="promptModal" class="modal" style="z-index: 200;">
         <div class="modal-content prompt-content">
             <h3 id="promptMessage"></h3>
