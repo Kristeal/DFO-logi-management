@@ -1,0 +1,140 @@
+/* General Base Styles */
+body { 
+    font-family: Arial, sans-serif; 
+    max-width: 1000px; 
+    margin: 0 auto; 
+    padding: 20px; 
+    background: #f4f6f8; 
+    padding-bottom: 80px; 
+}
+.card { 
+    background: white; 
+    padding: 20px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+    margin-bottom: 20px; 
+}
+h2 { margin-top: 0; color: #2c3e50; }
+
+/* Header & Authentication */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+}
+.header-title {
+    margin: 0;
+    color: #1e293b;
+}
+
+/* Buttons */
+.btn { 
+    padding: 10px 16px; 
+    border: none; 
+    border-radius: 6px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    font-size: 14px; 
+    transition: background 0.2s;
+}
+.btn-discord { background: #5865F2; color: white; display: flex; align-items: center; gap: 8px; }
+.btn-discord:hover { background: #4752c4; }
+.btn-logout { background: #e2e8f0; color: #475569; }
+.btn-logout:hover { background: #cbd5e1; }
+.btn-submit { background: #10b981; color: white; width: 100%; padding: 12px;}
+.btn-submit:hover { background: #059669; }
+.btn-small { padding: 5px 10px; font-size: 12px; margin-left: 5px; cursor: pointer; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc;}
+.btn-small:hover { background: #e2e8f0; }
+
+/* Goals Dashboard */
+.goals-container { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; }
+.goal-card { background: #fffbeb; border: 1px solid #fcd34d; padding: 15px; border-radius: 8px; flex: 1; min-width: 250px; }
+.goal-card h3 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #fde68a; padding-bottom: 8px; color: #b45309; display:flex; align-items:center; }
+.goal-item { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; color: #334155; }
+.goal-text { font-weight: bold; }
+.goal-met { color: #16a34a; } 
+.goal-under { color: #dc2626; } 
+
+/* Table & Filters */
+.filters { display: flex; gap: 10px; margin-bottom: 15px; }
+.filters input, .filters select { padding: 10px; flex: 1; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; }
+.filters input:focus, .filters select:focus { border-color: #3b82f6; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+th { background-color: #1e293b; color: white; font-weight: 500; }
+tr.data-row:hover { background-color: #f8fafc; cursor: pointer; }
+tr.pinned-row { background-color: #fffbeb; }
+tr.pinned-row:hover { background-color: #fef3c7; }
+tr.pinned-row td:first-child { border-left: 4px solid #f59e0b; }
+.public-badge { background: #f59e0b; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-left: 5px; font-weight: bold; letter-spacing: 0.5px;}
+
+/* Menus */
+.dropdown { position: relative; display: inline-block; }
+.dropbtn { background: none; border: none; font-size: 20px; cursor: pointer; padding: 0 10px; font-weight: bold; color: #64748b; }
+.dropdown-content { display: none; position: absolute; right: 0; background-color: white; min-width: 160px; box-shadow: 0px 10px 15px -3px rgba(0,0,0,0.1); z-index: 10; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; }
+.dropdown-content a { color: #334155; padding: 12px 16px; text-decoration: none; display: block; font-size: 14px; }
+.dropdown-content a:hover { background-color: #f1f5f9; }
+.show-menu { display: block; }
+
+/* Custom Modals */
+.modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); align-items:center; justify-content:center; backdrop-filter: blur(2px); }
+.modal-content { background-color: #fff; padding: 24px; border-radius: 12px; width: 80%; max-width: 600px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); position:relative; max-height:80vh; display:flex; flex-direction:column;}
+.prompt-content { max-width: 400px; text-align: center; }
+.close { color: #94a3b8; position:absolute; right:20px; top:20px; font-size: 24px; font-weight: bold; cursor: pointer; transition: color 0.2s;}
+.close:hover { color: #0f172a; }
+.modal-body-scroll { overflow-y: auto; margin-top: 15px; padding-right:10px; }
+.inv-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #334155;}
+.qty-box { display: flex; align-items: center; }
+.inv-qty { font-weight: bold; color: #475569; width: 120px; text-align: right; }
+.target-text { font-weight: bold; }
+.qty-current { color: #3b82f6; }
+.qty-target { color: #ea580c; font-size: 0.9em; }
+.set-target-box { background: #f8fafc; padding: 15px; margin-top: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+
+/* Refined Stacking Toasts (Top Right) */
+#toast-container { 
+    position: fixed; 
+    top: 20px; 
+    right: 20px; 
+    z-index: 1000; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 12px; 
+    pointer-events: none; /* Lets clicks pass through the container */
+}
+.toast { 
+    padding: 14px 24px; 
+    border-radius: 8px; 
+    color: white; 
+    font-weight: 500; 
+    font-size: 14px;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
+    pointer-events: auto; /* Re-enable clicks on the toast itself */
+    transform: translateX(120%);
+    animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    min-width: 250px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.toast.hide { animation: slideOutRight 0.3s ease-in forwards; }
+.toast-success { background-color: #1e293b; border-left: 4px solid #10b981; }
+.toast-error { background-color: #1e293b; border-left: 4px solid #ef4444; }
+.toast-warning { background-color: #1e293b; border-left: 4px solid #f59e0b; }
+
+@keyframes slideInRight {
+    to { transform: translateX(0); }
+}
+@keyframes slideOutRight {
+    to { transform: translateX(120%); opacity: 0; }
+}
+
+/* Sync Bar */
+#syncBar { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; color: white; padding: 15px 20px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; z-index: 90; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.1);}
+#syncBar.visible { transform: translateY(0); }
+.sync-btns button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-left: 10px; }
+.btn-sync { background: #10b981; color: white; }
+.btn-discard { background: #ef4444; color: white; }
