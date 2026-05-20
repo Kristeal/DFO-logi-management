@@ -496,3 +496,107 @@ function customConfirm(message) {
         cancelBtn.onclick = () => { resolve(false); cleanup(); };
     });
 }
+// ==========================================
+// 10. UPLOAD & VALIDATION ENGINE
+// ==========================================
+async function processUpload() {
+    const text = document.getElementById('csvInput').value.trim();
+    if (!text) { showToast("Input is empty.", "error"); return; }
+    
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l !== "");
+    const firstLine = lines[0].split(",");
+    if (firstLine.length < 2) { showToast("Invalid first line format.", "error"); return; }
+    
+    const metaParts = firstLine[0].split(" - ");
+    if (metaParts.length < 4) { showToast("Invalid metadata format.", "error"); return; }
+    
+    const hex = metaParts[0].trim();
+    const poi = metaParts[1].trim();
+    const type = metaParts[2].trim();
+    const name = metaParts.slice(3).join(" - ").trim();
+    
+    let parsedItems = [];
+    let parsedItemNames = [];
+    
+    // Parse the CSV
+    for (let i = 1; i < lines.length; i++) {
+        let line = lines[i];
+        if (line === "END OF ENTRY") continue;
+        
+        let lastCommaIdx = line.lastIndexOf(",");
+        if (lastCommaIdx === -1) continue;
+        
+        let itemName = line.substring(0, lastCommaIdx).trim();
+        let qty = line.substring(lastCommaIdx + 1).trim();
+        
+        parsedItems.push({ name: itemName, qty: qty, target: "0" });
+        parsedItemNames.push(itemName);
+    }
+    
+    // --- TEMPLATE VALIDATION ---
+    if (!globalTemplates[type]) {
+        // First upload of this type! Create the template rule.
+        const { error: tErr } = await supabaseClient.from('templates').insert({ type: type, items: parsedItemNames });
+        if (tErr) { showToast("Error creating template: " + tErr.message, "error"); return; }
+        
+        globalTemplates[type] = parsedItemNames;
+        showToast(`Created new validation template for type: ${type}`, "success");
+    } else {
+        // Enforce validation rules
+        let templateItems = globalTemplates[type];
+        for (let item of parsedItemNames) {
+            if (!templateItems.includes(item)) {
+                showToast(`Validation Failed: '${item}' is not a valid item for a '${type}' stockpile.`, "error");
+                return;
+            }
+        }
+    }
+    
+    const uploaderName = globalUser.user_metadata.full_name || globalUser.user_metadata.name || 'User';
+    let existingSp = globalStockpiles.find(s => s.hex === hex && s.poi === poi && s.type === type && s.name === name);
+    
+    if (existingSp) {
+        // UPDATE EXISTING STOCKPILE
+        let existingInv = globalInventories[existingSp.id] || [];
+        
+        // Merge quantities but preserve user targets
+        let newInv = parsedItems.map(pItem => {
+            let eItem = existingInv.find(e => e.name === pItem.name);
+            return { name: pItem.name, qty: pItem.qty, target: eItem ? eItem.target : "0" };
+        });
+        
+        // Retain targets for items that were at 0 and not in the CSV
+        existingInv.forEach(eItem => {
+            if (eItem.target !== "0" && !newInv.find(n => n.name === eItem.name)) {
+                newInv.push({ name: eItem.name, qty: "0", target: eItem.target });
+            }
+        });
+        
+        globalInventories[existingSp.id] = newInv;
+        existingSp.last_modified = new Date().toISOString();
+        existingSp.uploaded_by = uploaderName; 
+        
+        queueAction({ type: 'update', id: existingSp.id });
+        showToast(`Stockpile updated locally. Click Sync to save!`, "success");
+        
+    } else {
+        // CREATE BRAND NEW STOCKPILE
+        const newSp = {
+            hex: hex, poi: poi, type: type, name: name, 
+            pinned: false, uploaded_by: uploaderName, inventory: parsedItems
+        };
+        
+        document.getElementById('syncText').innerText = "Uploading new stockpile...";
+        const { error } = await supabaseClient.from('stockpiles').insert(newSp);
+        
+        if (error) {
+            showToast("Failed to upload: " + error.message, "error");
+        } else {
+            showToast(`Created new stockpile: ${name}`, "success");
+            fetchDatabase(); // Instantly reload to grab the new UUID from the server
+        }
+    }
+    
+    document.getElementById('uploadModal').style.display = 'none';
+    document.getElementById('csvInput').value = '';
+}
