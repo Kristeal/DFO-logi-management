@@ -64,7 +64,12 @@ function handleSessionState(session) {
 }
 
 async function signInWithDiscord() {
-    const { error } = await supabaseClient.auth.signInWithOAuth({ provider: 'discord' });
+    const { error } = await supabaseClient.auth.signInWithOAuth({ 
+        provider: 'discord',
+        options: {
+            redirectTo: 'https://kristeal.github.io/DFO-logi-management/' 
+        }
+    });
     if (error) showToast(error.message, "error");
 }
 
