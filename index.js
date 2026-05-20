@@ -3,7 +3,9 @@
 // ==========================================
 const SUPABASE_URL = 'https://ycvoizbvjmibqklyfhfx.supabase.co/';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inljdm9pemJ2am1pYnFrbHlmaGZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDQ2OTMsImV4cCI6MjA5NDg4MDY5M30.2sT0BrwOjR5LUzlF4uEkhjdrcTUOG6t4zrWNfMABIls';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Renamed to 'supabaseClient' to prevent naming collision with the CDN!
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
 // 2. GLOBAL STATE
@@ -21,11 +23,11 @@ let hasPromptedSync = false;
 // ==========================================
 window.onload = async function() { 
     // Check if the user is already logged in when the page loads
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     handleSessionState(session);
 
     // Listen for login/logout events automatically
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
         handleSessionState(session);
     });
 };
@@ -62,12 +64,12 @@ function handleSessionState(session) {
 }
 
 async function signInWithDiscord() {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'discord' });
+    const { error } = await supabaseClient.auth.signInWithOAuth({ provider: 'discord' });
     if (error) showToast(error.message, "error");
 }
 
 async function signOut() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     showToast("Successfully logged out.", "success");
     globalStockpiles = [];
     globalInventories = {};
@@ -78,7 +80,7 @@ async function signOut() {
 // ==========================================
 async function fetchDatabase() {
     // 1. Fetch all rows from the 'stockpiles' table
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('stockpiles')
         .select('*')
         .order('pinned', { ascending: false }); // Pinned items at the top
@@ -164,7 +166,7 @@ async function syncWithDatabase() {
 
     // 1. Process Deletions
     for (let id of toDelete) {
-        const { error } = await supabase.from('stockpiles').delete().eq('id', id);
+        const { error } = await supabaseClient.from('stockpiles').delete().eq('id', id);
         if (error) hasError = true;
     }
 
@@ -177,7 +179,7 @@ async function syncWithDatabase() {
         rowData.inventory = globalInventories[id] || [];
         rowData.last_modified = new Date().toISOString();
 
-        const { error } = await supabase.from('stockpiles').upsert({
+        const { error } = await supabaseClient.from('stockpiles').upsert({
             id: rowData.id,
             hex: rowData.hex,
             poi: rowData.poi,
@@ -225,8 +227,6 @@ async function actionDelete(event, id) {
     queueAction({ type: 'delete', id: id });
 }
 
-// Note: Modifying the Primary Key (ID) is an anti-pattern in SQL databases. 
-// If users need to rename a stockpile, they should change the 'name' instead.
 async function actionRename(event, id) {
     event.preventDefault(); event.stopPropagation(); closeAllMenus();
     let sp = globalStockpiles.find(s => s.id === id);
@@ -273,7 +273,6 @@ function openInventory(id, name, type) {
     }
     document.getElementById('modalBody').innerHTML = html;
 
-    // Populate dropdown with previously known items of this type
     let selectHtml = `<option value="">-- Select Item to Track --</option>`;
     if (globalValidItems[type]) {
         Array.from(globalValidItems[type]).forEach(vItem => {
@@ -360,7 +359,6 @@ function populateTable(data) {
         let nameHtml = sp.name.toUpperCase() === 'PUBLIC' ? `<span class="public-badge">PUBLIC</span>` : sp.name;
         if (sp.pinned) nameHtml = `<span style="color:#f59e0b; font-size: 14px;">📌</span> ` + nameHtml;
         
-        // Format Timestamp nicely
         let dateObj = new Date(sp.last_modified);
         let dateStr = isNaN(dateObj) ? "Unknown" : dateObj.toLocaleString();
 
@@ -391,7 +389,6 @@ function populateTypeDropdown() {
     const types = [...new Set(globalStockpiles.map(item => item.type))];
     const select = document.getElementById('searchType');
     
-    // Save current selection to persist filter while typing
     const currentVal = select.value; 
     select.innerHTML = '<option value="">All Types</option>';
     types.forEach(t => { 
