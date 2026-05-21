@@ -12,10 +12,8 @@ let globalUser = null;
 let globalStockpiles = [];
 let globalInventories = {}; 
 let globalValidItems = {};
-let globalTemplates = {}; // Stores the validation rules
-let pendingActions = []; 
+let globalTemplates = {};
 let currentModalId = null;
-let hasPromptedSync = false;
 
 // ==========================================
 // 3. AUTHENTICATION FLOW
@@ -39,7 +37,7 @@ function handleSessionState(session) {
         globalUser = session.user;
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'block';
-        if(uploadBtn) uploadBtn.style.display = 'block'; // UNHIDE THE UPLOAD BUTTON
+        if(uploadBtn) uploadBtn.style.display = 'block'; 
         
         const discordName = session.user.user_metadata.full_name || session.user.user_metadata.name || 'User';
         logoutBtn.innerText = `Logout (${discordName})`;
@@ -52,7 +50,7 @@ function handleSessionState(session) {
         globalUser = null;
         loginBtn.style.display = 'flex';
         logoutBtn.style.display = 'none';
-        if(uploadBtn) uploadBtn.style.display = 'none'; // HIDE UPLOAD BUTTON
+        if(uploadBtn) uploadBtn.style.display = 'none'; 
         
         document.querySelectorAll('.filters input, .filters select').forEach(el => el.disabled = true);
         tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #64748b; padding: 30px;">🔒 Please log in using Discord to view the database.</td></tr>';
@@ -63,7 +61,10 @@ function handleSessionState(session) {
 async function signInWithDiscord() {
     const { error } = await supabaseClient.auth.signInWithOAuth({ 
         provider: 'discord',
-        options: { redirectTo: 'https://kristeal.github.io/DFO-logi-management/' }
+        options: { 
+            scopes: 'identify', 
+            redirectTo: 'https://kristeal.github.io/DFO-logi-management/' 
+        }
     });
     if (error) showToast(error.message, "error");
 }
@@ -79,20 +80,17 @@ async function signOut() {
 // 4. DATABASE FETCHING & RENDERING
 // ==========================================
 async function fetchDatabase() {
-    // Fetch Stockpiles
     const { data: spData, error: spError } = await supabaseClient
         .from('stockpiles')
         .select('*')
         .order('pinned', { ascending: false });
 
-    // Fetch Validation Templates
     const { data: tData } = await supabaseClient.from('templates').select('*');
     if (tData) {
         tData.forEach(t => { globalTemplates[t.type] = t.items; });
     }
 
     if (spError) {
-        // If they get an error here, it likely means they aren't on the Whitelist!
         showToast("Database locked or connection failed.", "error");
         document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" style="color:#ef4444; text-align:center; padding:30px;">⛔ Access Denied. You are not on the authorized whitelist.</td></tr>';
         return;
@@ -118,6 +116,7 @@ function renderAll() {
     populateGoals();
     applyFilters();
     
+    // Automatically re-render modal if it's currently open
     if (currentModalId && document.getElementById('invModal').style.display === 'flex') {
         let sp = globalStockpiles.find(s => s.id === currentModalId);
         if (sp) openInventory(sp.id, sp.name, sp.type);
@@ -125,91 +124,16 @@ function renderAll() {
 }
 
 // ==========================================
-// 5. SYNC LOGIC
+// 5. UI MUTATORS (INSTANT DB SYNC)
 // ==========================================
-function queueAction(actionObj) {
-    pendingActions.push(actionObj);
-    document.getElementById('syncText').innerText = `Unsynced Changes: ${pendingActions.length}`;
-    document.getElementById('syncBar').classList.add('visible');
-    
-    if (!hasPromptedSync) {
-        showToast("Change applied locally. Remember to click Sync!", "warning");
-        hasPromptedSync = true;
-    }
-    renderAll();
-}
-
-function discardChanges() {
-    pendingActions = [];
-    hasPromptedSync = false;
-    document.getElementById('syncBar').classList.remove('visible');
-    showToast("Changes discarded.", "warning");
-    fetchDatabase(); 
-}
-
-async function syncWithDatabase() {
-    if (pendingActions.length === 0) return;
-    document.getElementById('syncText').innerText = "Syncing with database, please wait...";
-
-    let toUpdate = new Set();
-    let toDelete = new Set();
-
-    pendingActions.forEach(act => {
-        if (act.type === 'delete') {
-            toDelete.add(act.id);
-            toUpdate.delete(act.id);
-        } else {
-            if (!toDelete.has(act.id)) toUpdate.add(act.id);
-        }
-    });
-
-    let hasError = false;
-
-    for (let id of toDelete) {
-        const { error } = await supabaseClient.from('stockpiles').delete().eq('id', id);
-        if (error) hasError = true;
-    }
-
-    for (let id of toUpdate) {
-        let rowData = globalStockpiles.find(s => s.id === id);
-        if (!rowData) continue;
-
-        rowData.inventory = globalInventories[id] || [];
-        rowData.last_modified = new Date().toISOString();
-
-        const { error } = await supabaseClient.from('stockpiles').upsert({
-            id: rowData.id,
-            hex: rowData.hex,
-            poi: rowData.poi,
-            type: rowData.type,
-            name: rowData.name,
-            pinned: rowData.pinned,
-            uploaded_by: rowData.uploaded_by,
-            inventory: rowData.inventory,
-            last_modified: rowData.last_modified
-        });
-        if (error) hasError = true;
-    }
-
-    if (hasError) {
-        showToast("Sync completed with errors. Check permissions.", "error");
-    } else {
-        showToast("Database successfully synced!", "success");
-    }
-
-    pendingActions = [];
-    hasPromptedSync = false;
-    document.getElementById('syncBar').classList.remove('visible');
-    fetchDatabase();
-}
-
-// ==========================================
-// 6. UI MUTATORS
-// ==========================================
-function actionTogglePinned(event, id) {
+async function actionTogglePinned(event, id) {
     event.preventDefault(); event.stopPropagation(); closeAllMenus();
     let sp = globalStockpiles.find(s => s.id === id);
-    if (sp) { sp.pinned = !sp.pinned; queueAction({ type: 'update', id: id }); }
+    if (sp) { 
+        const { error } = await supabaseClient.from('stockpiles').update({ pinned: !sp.pinned }).eq('id', id);
+        if (error) showToast(error.message, "error");
+        else fetchDatabase();
+    }
 }
 
 async function actionDelete(event, id) {
@@ -217,9 +141,12 @@ async function actionDelete(event, id) {
     let conf = await customConfirm("Are you sure you want to remove this entry? This is not reversible.");
     if (!conf) return;
     
-    globalStockpiles = globalStockpiles.filter(s => s.id !== id);
-    delete globalInventories[id];
-    queueAction({ type: 'delete', id: id });
+    const { error } = await supabaseClient.from('stockpiles').delete().eq('id', id);
+    if (error) showToast(error.message, "error");
+    else {
+        showToast("Entry deleted successfully.", "success");
+        fetchDatabase();
+    }
 }
 
 async function actionRename(event, id) {
@@ -230,12 +157,26 @@ async function actionRename(event, id) {
     let newName = await customPrompt(`Rename stockpile '${sp.name}':`, sp.name);
     if (!newName || newName.trim() === "" || newName === sp.name) return;
     
-    sp.name = newName.trim();
-    queueAction({ type: 'update', id: id });
+    const { error } = await supabaseClient.from('stockpiles').update({ name: newName.trim() }).eq('id', id);
+    if (error) showToast(error.message, "error");
+    else fetchDatabase();
+}
+
+async function applyLocalTarget(id, itemName, targetValue) {
+    targetValue = targetValue || "0";
+    if (!globalInventories[id]) globalInventories[id] = [];
+    
+    let invItem = globalInventories[id].find(i => i.name === itemName);
+    if (invItem) { invItem.target = targetValue; } 
+    else { globalInventories[id].push({ name: itemName, qty: "0", target: targetValue }); }
+    
+    const { error } = await supabaseClient.from('stockpiles').update({ inventory: globalInventories[id] }).eq('id', id);
+    if (error) showToast(error.message, "error");
+    else fetchDatabase();
 }
 
 // ==========================================
-// 7. INVENTORY MODAL
+// 6. INVENTORY MODAL (CLEANED VIEW)
 // ==========================================
 function openInventory(id, name, type) {
     const mod = document.getElementById('invModal');
@@ -245,27 +186,36 @@ function openInventory(id, name, type) {
     
     const inv = globalInventories[id] || [];
     let html = '';
+    let visibleCount = 0;
     
-    if (inv.length === 0) {
-        html = "<em style='color:#64748b;'>This stockpile is completely empty and has no targets.</em>";
-    } else {
-        inv.forEach(item => {
-            let qtyDisplay = `<span class="inv-qty">${item.qty}</span>`;
-            if (parseInt(item.target) > 0) {
-                qtyDisplay = `<div class="inv-qty target-text">
-                    <span class="qty-current">${item.qty}</span> / 
-                    <span class="qty-target">${item.target}</span>
-                </div>`;
-            }
-            html += `<div class="inv-item">
-                <span>${item.name}</span> 
-                <div class="qty-box">
-                    ${qtyDisplay}
-                    <button class="btn-small" onclick="promptTarget('${id}', '${item.name}', '${item.target}')">Target</button>
-                </div>
+    inv.forEach(item => {
+        let q = parseInt(item.qty) || 0;
+        let t = parseInt(item.target) || 0;
+        
+        // Hide items with 0 quantity UNLESS they have an active target
+        if (q === 0 && t === 0) return;
+        
+        visibleCount++;
+        let qtyDisplay = `<span class="inv-qty">${item.qty}</span>`;
+        if (t > 0) {
+            qtyDisplay = `<div class="inv-qty target-text">
+                <span class="qty-current">${item.qty}</span> / 
+                <span class="qty-target">${item.target}</span>
             </div>`;
-        });
+        }
+        html += `<div class="inv-item">
+            <span>${item.name}</span> 
+            <div class="qty-box">
+                ${qtyDisplay}
+                <button class="btn-small" onclick="promptTarget('${id}', '${item.name}', '${item.target}')">Target</button>
+            </div>
+        </div>`;
+    });
+
+    if (visibleCount === 0) {
+        html = "<em style='color:#64748b;'>No items with quantity > 0 or active targets.</em>";
     }
+    
     document.getElementById('modalBody').innerHTML = html;
 
     let selectHtml = `<option value="">-- Select Item to Track --</option>`;
@@ -292,18 +242,8 @@ async function submitNewTarget() {
     applyLocalTarget(currentModalId, item, newVal);
 }
 
-function applyLocalTarget(id, itemName, targetValue) {
-    targetValue = targetValue || "0";
-    if (!globalInventories[id]) globalInventories[id] = [];
-    
-    let invItem = globalInventories[id].find(i => i.name === itemName);
-    if (invItem) { invItem.target = targetValue; } 
-    else { globalInventories[id].push({ name: itemName, qty: "0", target: targetValue }); }
-    queueAction({ type: 'update', id: id });
-}
-
 // ==========================================
-// 8. DASHBOARD RENDERING
+// 7. DASHBOARD RENDERING
 // ==========================================
 function populateGoals() {
     const container = document.getElementById('goalsContainer');
@@ -419,7 +359,7 @@ function closeAllMenus() {
 }
 
 // ==========================================
-// 9. HELPER MODALS
+// 8. HELPER MODALS
 // ==========================================
 function showToast(message, type = "success") {
     const container = document.getElementById('toast-container');
@@ -466,7 +406,7 @@ function customConfirm(message) {
 }
 
 // ==========================================
-// 10. CSV UPLOAD ENGINE
+// 9. CSV UPLOAD ENGINE
 // ==========================================
 async function processUpload() {
     const text = document.getElementById('csvInput').value.trim();
@@ -499,15 +439,12 @@ async function processUpload() {
         parsedItemNames.push(itemName);
     }
     
-    // TEMPLATE VALIDATION
     if (!globalTemplates[type]) {
-        // Create new template
         const { error: tErr } = await supabaseClient.from('templates').insert({ type: type, items: parsedItemNames });
         if (tErr) { showToast("Error creating template: " + tErr.message, "error"); return; }
         globalTemplates[type] = parsedItemNames;
         showToast(`Created new validation template for type: ${type}`, "success");
     } else {
-        // Enforce existing template
         let templateItems = globalTemplates[type];
         for (let item of parsedItemNames) {
             if (!templateItems.includes(item)) {
@@ -533,19 +470,24 @@ async function processUpload() {
             }
         });
         
-        globalInventories[existingSp.id] = newInv;
-        existingSp.last_modified = new Date().toISOString();
-        existingSp.uploaded_by = uploaderName; 
-        
-        queueAction({ type: 'update', id: existingSp.id });
-        showToast(`Stockpile updated locally. Click Sync to save!`, "success");
+        const { error } = await supabaseClient.from('stockpiles').update({
+            inventory: newInv,
+            last_modified: new Date().toISOString(),
+            uploaded_by: uploaderName
+        }).eq('id', existingSp.id);
+
+        if (error) {
+            showToast("Failed to update: " + error.message, "error");
+        } else {
+            showToast(`Stockpile updated successfully!`, "success");
+            fetchDatabase();
+        }
     } else {
         const newSp = {
             hex: hex, poi: poi, type: type, name: name, 
             pinned: false, uploaded_by: uploaderName, inventory: parsedItems
         };
         
-        document.getElementById('syncText').innerText = "Uploading new stockpile...";
         const { error } = await supabaseClient.from('stockpiles').insert(newSp);
         
         if (error) showToast("Failed to upload: " + error.message, "error");
